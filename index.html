@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>👑 Admin Control Panel</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --bg: #0f172a; --bg-light: #f1f5f9; --panel: rgba(255, 255, 255, 0.65);
+      --text: #0f172a; --muted: #475569; --border: rgba(0, 0, 0, 0.1); --accent: #7c3aed;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Space Grotesk', system-ui, sans-serif; background-color: #e2e8f0;
+      background-image: radial-gradient(circle at top right, rgba(236, 72, 153, 0.1), transparent 40%),
+                        radial-gradient(circle at bottom left, rgba(168, 85, 247, 0.15), transparent 40%);
+      color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 16px; overflow-x: hidden;
+    }
+
+    .glass-card {
+      background: var(--panel); border-radius: 1.5rem; position: relative; overflow: hidden;
+      box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    }
+    .glass-card::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient( 800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(236, 72, 153, 0.12), rgba(168, 85, 247, 0.08), rgba(56, 189, 248, 0.08), transparent 40% );
+      opacity: 0; transition: opacity 0.5s ease; pointer-events: none; z-index: 1;
+    }
+    .glass-card::after {
+      content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 4px;
+      background: radial-gradient( 300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(236, 72, 153, 0.9), rgba(168, 85, 247, 0.9) 25%, rgba(16, 185, 129, 0.9) 65%, transparent 100% ); 
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+      opacity: 0; transition: opacity 0.5s ease; pointer-events: none; z-index: 2;
+    }
+    .glass-card:hover { transform: translateY(-8px); box-shadow: 0 20px 50px -10px rgba(236, 72, 153, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.8); }
+    .glass-card:hover::before, .glass-card:hover::after { opacity: 1; }
+    .glass-card > * { position: relative; z-index: 3; }
+
+    .modal {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); display: flex; align-items: center; justify-content: center;
+      z-index: 99999; backdrop-filter: blur(12px); opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .modal.show { opacity: 1; pointer-events: auto; }
+    .modal-box { width: 90%; max-width: 450px; padding: 30px 24px; text-align: center; max-height: 90vh; overflow-y: auto; transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .modal.show .modal-box { transform: scale(1); }
+    .modal-box h3 { margin-bottom: 12px; color: #1e293b; font-size: 1.6rem; font-weight: 800; }
+    .modal-box p { color: var(--muted); margin-bottom: 20px; font-size: 1.1rem; }
+    .modal-actions { display: flex; gap: 12px; justify-content: center; margin-top: 15px; }
+
+    .container { width: 100%; max-width: 800px; padding: 28px; margin: 20px auto; border: 1px solid rgba(255, 255, 255, 0.4); }
+    h1 { margin: 0 0 20px; text-align: center; font-size: clamp(2.5rem, 4vw, 3.5rem); font-weight: 800; text-transform: uppercase; background: linear-gradient(90deg, #ec4899, #a855f7, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 30px rgba(236, 72, 153, 0.2); }
+
+    input[type="text"], input[type="password"], input[type="number"], select {
+      width: 100%; padding: 14px 16px; border-radius: 10px; border: 2px solid rgba(0, 0, 0, 0.05); outline: none; text-align: center;
+      background: rgba(255, 255, 255, 0.8); color: #000; font-size: 16px; font-family: inherit; transition: all 0.3s ease;
+    }
+    input:focus, select:focus { border-color: #ec4899; background: #fff; box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.2); transform: translateY(-2px); }
+
+    button { padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 15px; font-family: inherit; transition: all 0.2s ease; }
+    button:active { transform: scale(0.95); }
+    .btn-add { background: linear-gradient(135deg, #f472b6, #db2777); color: white; box-shadow: 0 10px 25px rgba(236, 72, 153, 0.3); }
+    .btn-add:hover { box-shadow: 0 15px 35px rgba(236, 72, 153, 0.4); transform: translateY(-3px); }
+    .btn-cancel { background: rgba(148, 163, 184, 0.2); color: #334155; border: 1px solid rgba(148, 163, 184, 0.3); }
+    .btn-cancel:hover { background: rgba(148, 163, 184, 0.4); }
+    .btn-danger { background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; }
+    .btn-control { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; width: 100%; }
+    .btn-control:hover { background: #ec4899; color: white; border-color: #db2777; }
+    .btn-cmd { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; width: 100%; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.1); }
+    .btn-cmd:hover { background: #6366f1; color: white; border-color: #4f46e5; transform: translateY(-2px); }
+    .btn-del { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; width: 100%; }
+    .btn-del:hover { background: #ef4444; color: white; border-color: #dc2626; }
+
+    .form-grid { display: grid; gap: 8px; margin-bottom: 24px; }
+    .add-board-grid { grid-template-columns: 1fr 1fr; }
+    .add-item-form { grid-template-columns: 1fr 1fr 0.8fr 0.8fr; }
+
+    .attr-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .attr-row input[type="color"] { width: 44px; height: 44px; padding: 0; cursor: pointer; border-radius: 8px; border: 2px solid rgba(0,0,0,0.05); }
+    .btn-remove-attr { width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; }
+    .btn-remove-attr:hover { background: #ef4444; color: white; }
+    .btn-add-attr { padding: 8px 12px; font-size: 13px; background: rgba(168, 85, 247, 0.1); color: var(--accent); border: 1px dashed var(--accent); display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-bottom: 15px;}
+    .btn-add-attr:hover { background: var(--accent); color: white; }
+
+    .form-reveal-container {
+      max-width: 150px; max-height: 6px; margin: -10px auto 30px;
+      background: linear-gradient(90deg, #ec4899, #d946ef, #8b5cf6); border-radius: 10px; overflow: hidden;
+      transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer;
+    }
+    .form-reveal-container:hover, .form-reveal-container:focus-within {
+      max-width: 100%; max-height: 800px; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px);
+      border: 1px solid rgba(236, 72, 153, 0.4); border-radius: 1.25rem; cursor: default;
+    }
+    .reveal-content { padding: 24px; opacity: 0; transform: translateY(-15px); transition: all 0.4s ease; pointer-events: none; }
+    .form-reveal-container:hover .reveal-content, .form-reveal-container:focus-within .reveal-content { opacity: 1; transform: translateY(0); pointer-events: auto; transition-delay: 0.15s; }
+
+    .row-item {
+      padding: 18px 24px; border-radius: 1.25rem; margin-bottom: 16px; background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.6); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;
+    }
+    .row-item::before { content: ""; position: absolute; left: 0; top: 0; width: 6px; height: 100%; background: var(--accent); transition: all 0.3s ease; }
+    .row-item:hover { transform: translateY(-5px) scale(1.01); background: #ffffff; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08); }
+
+    .rank-gold { background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(254, 240, 138, 0.4)); border: 1px solid rgba(250, 204, 21, 0.6); }
+    .rank-gold::before { background: linear-gradient(to bottom, #fde047, #eab308); width: 8px; }
+    .rank-silver { background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(226, 232, 240, 0.6)); border: 1px solid rgba(148, 163, 184, 0.5); }
+    .rank-silver::before { background: linear-gradient(to bottom, #cbd5e1, #94a3b8); width: 8px; }
+    .rank-bronze { background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(254, 215, 170, 0.4)); border: 1px solid rgba(249, 115, 22, 0.4); }
+    .rank-bronze::before { background: linear-gradient(to bottom, #fdba74, #ea580c); width: 8px; }
+
+    .board-info, .player-info { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;}
+    .board-title { font-size: 22px; font-weight: 800; color: #1e293b; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .board-subtitle { font-size: 15px; color: var(--muted); font-weight: 500; width: 100%; }
+    .views-badge { display: flex; align-items: center; gap: 6px; font-size: 18px; font-weight: 800; color: #a855f7; background: rgba(168,85,247,0.1); padding: 4px 12px; border-radius: 12px;}
+    .attr-container { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+
+    .hover-controls {
+      display: flex; gap: 10px; justify-content: center; opacity: 0; transform: translateY(15px); pointer-events: none;
+      transition: all 0.3s ease; height: 0; overflow: hidden; margin-top: 0;
+    }
+    .row-item:hover .hover-controls { opacity: 1; transform: translateY(0); pointer-events: auto; height: auto; margin-top: 16px; }
+
+    .score-btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; width: 100%; }
+    .btn-minus { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .btn-minus:hover { background: #f59e0b; color: white; }
+    .btn-plus { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .btn-plus:hover { background: #22c55e; color: white; }
+
+    .attr-badge { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+    .list-header { text-align: center; margin-bottom: 25px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 8px;}
+    .list-header h2 { font-size: 2.5rem; color: #1e293b; margin: 0; font-weight: 800; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
+
+    /* Чекбоксы Мультивыбора */
+    .check-card { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+    .check-card:hover { background: #fff; border-color: var(--accent); }
+    .check-card input:checked + span { font-weight: bold; color: var(--accent); }
+
+    @media (max-width: 640px) { .add-board-grid { grid-template-columns: 1fr; } .add-item-form { grid-template-columns: 1fr 1fr; } #addItemBtn { grid-column: 1 / -1; } .hover-controls { flex-direction: column; } }
+  </style>
+</head>
+<body>
+
+  <div id="masterAuthModal" class="modal show" style="background: #0f172a;">
+    <div class="modal-box glass-card">
+      <h3>👑 Admin Login</h3>
+      <p>Enter master password to access Control Panel.</p>
+      <input id="masterPass" type="password" placeholder="Master Password">
+      <div class="modal-actions">
+        <button id="masterEnter" class="btn-add" style="width: 100%;">Unlock Admin Panel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="customAlert" class="modal">
+    <div class="modal-box glass-card">
+      <h3 id="alertTitle">Notice</h3>
+      <p id="alertMessage">Message</p>
+      <button id="alertOkBtn" class="btn-add" style="width: 100%;">OK</button>
+    </div>
+  </div>
+
+  <div id="customConfirm" class="modal">
+    <div class="modal-box glass-card">
+      <h3 id="confirmTitle">Confirm</h3>
+      <p id="confirmMessage">Are you sure?</p>
+      <div class="modal-actions">
+        <button id="confirmCancelBtn" class="btn-cancel" style="flex:1;">Cancel</button>
+        <button id="confirmYesBtn" class="btn-danger" style="flex:1;">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal">
+    <div class="modal-box glass-card">
+      <h3>Настройки списка</h3>
+      <div class="form-grid" style="grid-template-columns: 1fr; margin-bottom: 0;">
+        <input id="editBoardTitle" placeholder="Название списка">
+        <input id="editBoardSubtitle" placeholder="Описание">
+        <input id="editBoardPass" type="text" placeholder="Пароль списка">
+        
+        <div style="display:flex; align-items:center; gap: 10px; margin-top: 10px;">
+           <label style="font-weight: bold; color: var(--muted); font-size: 14px; white-space: nowrap;">Просмотры:</label>
+           <input id="editBoardViews" type="number" placeholder="0">
+        </div>
+
+        <div style="text-align: left; margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: var(--muted); font-size: 14px;">Атрибуты (Баннеры):</div>
+        <div id="editBoardAttributesContainer"></div>
+        <button id="addAttrBtnToEdit" class="btn-add-attr" type="button"><i class="fa-solid fa-plus"></i> Добавить атрибут</button>
+      </div>
+      <div class="modal-actions">
+        <button id="settingsCancelBtn" class="btn-cancel" style="flex:1;">Отмена</button>
+        <button id="settingsSaveBtn" class="btn-add" style="flex:1;">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="commandModal" class="modal">
+    <div class="modal-box glass-card border border-indigo-200" style="max-width: 550px;">
+      <h3>⚡ Командный Центр</h3>
+      <p style="margin-bottom: 15px;">Отправка событий и блокировок в реальном времени</p>
+      
+      <div class="form-grid" style="grid-template-columns: 1fr; text-align: left;">
+        
+        <label class="font-bold text-slate-600 text-sm">Действие (Одиночный выбор):</label>
+        <select id="cmdMode" class="mb-2">
+            <option value="confetti">🎉 Конфетти (Залп 1 раз)</option>
+            <option value="alert">💬 Уведомление (1 раз)</option>
+            <option value="flash">✨ Залп экрана (Вспышка цветом 1 раз)</option>
+            <option value="block">🚫 Установить Блокировку (Состояние)</option>
+            <option value="unblock">✅ Снять Блокировку</option>
+        </select>
+
+        <label class="font-bold text-slate-600 text-sm mt-2">Локация / Цель (Мультивыбор):</label>
+        <div id="targetBoardsContainer" class="grid grid-cols-2 gap-2 mb-2 max-h-40 overflow-y-auto p-2 bg-white/50 rounded-xl border border-slate-200 shadow-inner">
+           </div>
+
+        <label class="font-bold text-slate-600 text-sm mt-2">Роль пользователей (Мультивыбор):</label>
+        <div id="targetRolesContainer" class="grid grid-cols-3 gap-2 mb-2 p-2 bg-white/50 rounded-xl border border-slate-200 shadow-inner">
+           <label class="check-card"><input type="checkbox" value="spectate" checked> <span class="text-xs">Наблюдение</span></label>
+           <label class="check-card"><input type="checkbox" value="control" checked> <span class="text-xs">Управление</span></label>
+           <label class="check-card"><input type="checkbox" value="delete" checked> <span class="text-xs">Удаление</span></label>
+        </div>
+
+        <div id="cmdExtraFields" class="mt-2">
+            <label id="cmdPayloadLabel" class="font-bold text-slate-600 text-sm block mb-1 hidden">Текст сообщения:</label>
+            <input id="cmdPayload" type="text" placeholder="Введите текст сообщения..." class="mb-2 hidden">
+
+            <label id="cmdColorLabel" class="font-bold text-slate-600 text-sm block mb-1 hidden">Цвет вспышки:</label>
+            <input id="cmdColor" type="color" value="#a855f7" class="mb-2 hidden h-12">
+        </div>
+      </div>
+      
+      <div class="modal-actions mt-4">
+        <button id="cmdCancelBtn" class="btn-cancel" style="flex:1;">Закрыть</button>
+        <button id="cmdSendBtn" class="btn-cmd" style="flex:1;"><i class="fa-solid fa-paper-plane"></i> Выполнить</button>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="main-view" style="display: none; width: 100%; max-width: 800px;">
+    <div class="container glass-card">
+      <h1>👑 Admin Panel</h1>
+      
+      <button id="openCommandCenterBtn" class="btn-cmd mb-6" style="padding: 16px; font-size: 16px;"><i class="fa-solid fa-bolt text-yellow-400"></i> Командный Центр (Эвенты)</button>
+
+      <div class="form-reveal-container" tabindex="0">
+        <div class="reveal-content">
+          <div style="text-align: center; margin-bottom: 15px; font-weight: bold; color: #ec4899;">Создать новый список</div>
+          <div class="form-grid add-board-grid">
+            <input id="newBoardTitle" placeholder="Название">
+            <input id="newBoardSubtitle" placeholder="Описание">
+          </div>
+          <input id="newBoardPass" type="text" placeholder="Установить Пароль" style="margin-bottom: 15px;">
+          
+          <div style="text-align: left; margin-bottom: 5px; font-weight: bold; color: var(--muted); font-size: 13px;">Добавить Атрибуты (Опционально):</div>
+          <div id="newBoardAttributesContainer"></div>
+          <button id="addAttrBtnToNew" class="btn-add-attr" type="button"><i class="fa-solid fa-plus"></i> Добавить атрибут</button>
+          <button id="addBoardBtn" class="btn-add" style="width: 100%; margin-top: 10px;">Создать список</button>
+        </div>
+      </div>
+
+      <input type="text" id="searchInput" placeholder="🔍 Поиск по базе списков..." style="margin-bottom: 20px;">
+      <div id="boardsList"></div>
+    </div>
+  </div>
+
+  <div id="board-view" style="display: none; width: 100%; max-width: 800px;">
+    <div class="container glass-card">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+        <button id="backBtn" class="btn-cancel" style="padding: 10px 16px; border-radius: 10px;"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+        <button id="openSettingsBtn" class="btn-control" style="width: auto; padding: 10px 20px; border-radius: 10px;"><i class="fa-solid fa-sliders"></i> Настройки</button>
+      </div>
+
+      <div class="list-header">
+        <h2 id="currentBoardTitle">Название</h2>
+        <div id="currentBoardAttrs" class="attr-container" style="justify-content: center; margin-bottom: 10px;"></div>
+        <p id="currentBoardSubtitle">Описание</p>
+        <div class="flex items-center gap-4 mt-2">
+           <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-pink-100 text-pink-800 uppercase tracking-wider">GOD MODE</span>
+           <span class="views-badge bg-white shadow-sm border border-slate-100"><i class="fa-solid fa-eye"></i> <span id="currentBoardViews">0</span></span>
+        </div>
+      </div>
+
+      <div id="addItemSection">
+        <div class="form-grid add-item-form" style="margin: 20px 0;">
+          <input id="newItemName" placeholder="Имя">
+          <input id="newItemExtra" placeholder="Доп. инфо">
+          <input id="newItemScore" type="number" placeholder="Баллы">
+          <button id="addItemBtn" class="btn-add">Добавить</button>
+        </div>
+      </div>
+
+      <div id="itemsList"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, onValue, push, set, remove, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCfzqG_mbm80lC7p7p6IiSO_d1ie0ZaNVU",
+      authDomain: "leaderboard-6e9c6.firebaseapp.com",
+      databaseURL: "https://leaderboard-6e9c6-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "leaderboard-6e9c6",
+      storageBucket: "leaderboard-6e9c6.firebasestorage.app",
+      messagingSenderId: "92180809254",
+      appId: "1:92180809254:web:040a65b69aef5a16b948e7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+const _accessCode = [66, 101, 104, 114, 117, 122, 54, 55, 54, 57];
+const ADMIN_MASTER_PASSWORD = _accessCode.map(x => String.fromCharCode(x)).join('');
+
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioCtx();
+    function beep(f = 600, t = 80, v = 0.05) {
+      if(audioCtx.state === 'suspended') return;
+      const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+      o.frequency.value = f; o.type = "sine"; g.gain.value = v; o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + t / 1000);
+    }
+    document.addEventListener("click", () => { if (audioCtx.state === "suspended") audioCtx.resume(); }, { once: true });
+
+    function uiAlert(title, message) {
+      document.getElementById('alertTitle').innerText = title; document.getElementById('alertMessage').innerText = message;
+      const modal = document.getElementById('customAlert'); modal.classList.add('show');
+      document.getElementById('alertOkBtn').onclick = () => modal.classList.remove('show');
+    }
+    function uiConfirm(title, message, onConfirm) {
+      document.getElementById('confirmTitle').innerText = title; document.getElementById('confirmMessage').innerText = message;
+      const modal = document.getElementById('customConfirm'); modal.classList.add('show');
+      document.getElementById('confirmCancelBtn').onclick = () => modal.classList.remove('show');
+      document.getElementById('confirmYesBtn').onclick = () => { modal.classList.remove('show'); onConfirm(); };
+    }
+
+    function createAttributeRow(texts = {en: '', ru: '', uz: ''}, color = '#a855f7') {
+      const row = document.createElement('div'); row.className = 'attr-row';
+      row.innerHTML = `<div style="display:flex; flex:1; gap:4px;">
+                         <input type="text" class="attr-text-en" placeholder="EN" value="${texts.en || ''}" style="padding: 10px 8px; font-size: 13px;">
+                         <input type="text" class="attr-text-ru" placeholder="RU" value="${texts.ru || ''}" style="padding: 10px 8px; font-size: 13px;">
+                         <input type="text" class="attr-text-uz" placeholder="UZ" value="${texts.uz || ''}" style="padding: 10px 8px; font-size: 13px;">
+                       </div>
+                       <input type="color" class="attr-color" value="${color}" title="Цвет атрибута">
+                       <button type="button" class="btn-remove-attr" title="Удалить"><i class="fa-solid fa-xmark"></i></button>`;
+      row.querySelector('.btn-remove-attr').onclick = () => row.remove();
+      return row;
+    }
+    
+    function getAttributesFromContainer(containerId) {
+      const container = document.getElementById(containerId); const rows = container.querySelectorAll('.attr-row');
+      const attributes = [];
+      rows.forEach(row => {
+        const en = row.querySelector('.attr-text-en').value.trim();
+        const ru = row.querySelector('.attr-text-ru').value.trim();
+        const uz = row.querySelector('.attr-text-uz').value.trim();
+        const color = row.querySelector('.attr-color').value;
+        if(en || ru || uz) attributes.push({ texts: {en, ru, uz}, color, text: en || ru || uz });
+      });
+      return attributes;
+    }
+    
+    function renderAttributesHTML(attributes) {
+      if (!attributes || !Array.isArray(attributes) || attributes.length === 0) return "";
+      return attributes.map(a => {
+        const text = a.texts ? (a.texts.ru || a.texts.en || a.texts.uz) : a.text;
+        return `<span class="attr-badge" style="background:${a.color}20; color:${a.color}; border: 1px solid ${a.color};">${text}</span>`;
+      }).join('');
+    }
+
+    document.getElementById('addAttrBtnToNew').onclick = () => document.getElementById('newBoardAttributesContainer').appendChild(createAttributeRow());
+    document.getElementById('addAttrBtnToEdit').onclick = () => document.getElementById('editBoardAttributesContainer').appendChild(createAttributeRow());
+
+    let allBoards = {};
+    let systemBlocks = {};
+    let currentBoardId = null;
+
+    document.getElementById('masterEnter').onclick = () => {
+      if(document.getElementById('masterPass').value === ADMIN_MASTER_PASSWORD) {
+        document.getElementById('masterAuthModal').classList.remove('show'); document.getElementById('main-view').style.display = 'block'; initFirebaseListener();
+      } else { uiAlert("Ошибка", "Неверный мастер-пароль!"); }
+    };
+
+    function initFirebaseListener() {
+      onValue(ref(db, 'system/blocks'), (snapshot) => { systemBlocks = snapshot.val() || {}; renderBoards(document.getElementById('searchInput').value.toLowerCase()); });
+      onValue(ref(db, 'boards'), (snapshot) => {
+        allBoards = snapshot.val() || {};
+        if (currentBoardId === null) { renderBoards(document.getElementById('searchInput').value.toLowerCase()); } 
+        else { updateBoardHeader(); renderBoardItems(); }
+      });
+    }
+
+    function renderBoards(filterText = "") {
+      const container = document.getElementById('boardsList');
+      container.innerHTML = "";
+      
+      const sortedIds = Object.keys(allBoards).filter(id => {
+        const b = allBoards[id].settings;
+        return !filterText || b.title.toLowerCase().includes(filterText) || b.subtitle.toLowerCase().includes(filterText);
+      }).sort((a, b) => {
+        const sA = allBoards[a].settings;
+        const sB = allBoards[b].settings;
+        const attrCountA = sA.attributes ? sA.attributes.length : 0;
+        const attrCountB = sB.attributes ? sB.attributes.length : 0;
+        if(attrCountA !== attrCountB) return attrCountB - attrCountA;
+        return (sB.views || 0) - (sA.views || 0);
+      });
+
+      sortedIds.forEach((boardId, i) => {
+        const b = allBoards[boardId].settings;
+        const el = document.createElement('div');
+        
+        let rankClass = i === 0 ? "rank-gold" : (i === 1 ? "rank-silver" : (i === 2 ? "rank-bronze" : ""));
+        el.className = `row-item glass-card ${rankClass}`;
+        
+        const attrsHtml = renderAttributesHTML(b.attributes);
+        const viewsCount = b.views || 0;
+        let blockStatus = (b.block && b.block.active) ? `<span style="color:#ef4444; font-size:12px; margin-left:10px;"><i class="fa-solid fa-lock"></i> Blocked: [${(b.block.roles||[]).join(',')}]</span>` : "";
+
+        el.innerHTML = `
+          <div class="board-info">
+            <div style="flex: 1;">
+              <div class="board-title">${b.title} ${blockStatus}</div>
+              <div class="attr-container" style="margin-bottom: 6px;">${attrsHtml}</div>
+              <div class="board-subtitle">${b.subtitle}</div>
+              <div style="font-size: 12px; color: #ec4899; margin-top: 6px; font-weight: 600;"><i class="fa-solid fa-key"></i> Pass: ${b.password}</div>
+            </div>
+            <div class="views-badge" title="Просмотры"><i class="fa-solid fa-eye"></i> ${viewsCount}</div>
+          </div>
+          <div class="hover-controls">
+            <button class="btn-control edit-btn"><i class="fa-solid fa-pen-to-square"></i> Управлять</button>
+            <button class="btn-del delete-btn"><i class="fa-solid fa-trash"></i> Удалить</button>
+          </div>
+        `;
+
+        el.querySelector('.edit-btn').onclick = () => openBoard(boardId);
+        el.querySelector('.delete-btn').onclick = () => uiConfirm("Удаление списка", `Удалить список "${b.title}" навсегда?`, () => remove(ref(db, `boards/${boardId}`)));
+        container.appendChild(el);
+      });
+      applyGlassEffects();
+    }
+
+    document.getElementById('searchInput').addEventListener('input', (e) => renderBoards(e.target.value.toLowerCase()));
+
+    document.getElementById('addBoardBtn').onclick = () => {
+      const title = document.getElementById('newBoardTitle').value.trim(); const subtitle = document.getElementById('newBoardSubtitle').value.trim();
+      const pass = document.getElementById('newBoardPass').value.trim(); const attributes = getAttributesFromContainer('newBoardAttributesContainer');
+      if(!title || !pass) return uiAlert("Внимание", "Название и пароль обязательны!");
+      const safeId = title.trim().toLowerCase().replace(/\s+/g, '-').replace(/[.#$[\]]/g, ""); 
+      const isDuplicate = Object.values(allBoards).some(b => b.settings.title.toLowerCase() === title.toLowerCase());
+      if(isDuplicate) return uiAlert("Ошибка", "Такой список уже есть!");
+      set(ref(db, `boards/${safeId}/settings`), { title, subtitle, password: pass, attributes, views: 0 });
+      document.getElementById('newBoardTitle').value = ""; document.getElementById('newBoardSubtitle').value = ""; document.getElementById('newBoardPass').value = "";
+      document.getElementById('newBoardAttributesContainer').innerHTML = ""; document.activeElement.blur();
+    };
+
+    function openBoard(boardId) {
+      currentBoardId = boardId; document.getElementById('main-view').style.display = 'none'; document.getElementById('board-view').style.display = 'block';
+      updateBoardHeader(); renderBoardItems();
+    }
+
+    function updateBoardHeader() {
+      if(!allBoards[currentBoardId]) return; const settings = allBoards[currentBoardId].settings;
+      document.getElementById('currentBoardTitle').innerText = settings.title;
+      document.getElementById('currentBoardSubtitle').innerText = settings.subtitle;
+      document.getElementById('currentBoardViews').innerText = settings.views || 0;
+      document.getElementById('currentBoardAttrs').innerHTML = renderAttributesHTML(settings.attributes);
+    }
+
+    document.getElementById('openSettingsBtn').onclick = () => {
+      const settings = allBoards[currentBoardId].settings;
+      document.getElementById('editBoardTitle').value = settings.title; document.getElementById('editBoardSubtitle').value = settings.subtitle || '';
+      document.getElementById('editBoardPass').value = settings.password; document.getElementById('editBoardViews').value = settings.views || 0;
+      
+      const attrContainer = document.getElementById('editBoardAttributesContainer'); attrContainer.innerHTML = "";
+      if (settings.attributes && Array.isArray(settings.attributes)) { 
+        settings.attributes.forEach(attr => attrContainer.appendChild(createAttributeRow(attr.texts || {en: attr.text, ru: attr.text, uz: attr.text}, attr.color))); 
+      }
+      
+      const modal = document.getElementById('settingsModal'); modal.classList.add('show');
+      document.getElementById('settingsCancelBtn').onclick = () => modal.classList.remove('show');
+      document.getElementById('settingsSaveBtn').onclick = () => {
+        const newTitle = document.getElementById('editBoardTitle').value.trim();
+        if(!newTitle) return uiAlert("Ошибка", "Название не может быть пустым!");
+        update(ref(db, `boards/${currentBoardId}/settings`), {
+          title: newTitle, subtitle: document.getElementById('editBoardSubtitle').value.trim(), password: document.getElementById('editBoardPass').value.trim(),
+          views: Number(document.getElementById('editBoardViews').value) || 0, attributes: getAttributesFromContainer('editBoardAttributesContainer')
+        });
+        modal.classList.remove('show');
+      };
+    };
+
+    document.getElementById('backBtn').onclick = () => {
+      currentBoardId = null; document.getElementById('board-view').style.display = 'none'; document.getElementById('main-view').style.display = 'block'; renderBoards();
+    };
+
+    function renderBoardItems() {
+      const container = document.getElementById('itemsList'); container.innerHTML = ""; const items = allBoards[currentBoardId]?.items || {};
+      const sortedIds = Object.keys(items).sort((a, b) => (items[b].score || 0) - (items[a].score || 0));
+      sortedIds.forEach((id, i) => {
+        const item = items[id]; const el = document.createElement('div');
+        let rankClass = i === 0 ? "rank-gold" : (i === 1 ? "rank-silver" : (i === 2 ? "rank-bronze" : "")); el.className = `row-item glass-card ${rankClass}`;
+        const rankIcon = i === 0 ? "🏆" : (i === 1 ? "🥈" : (i === 2 ? "🥉" : (i + 1)));
+        el.innerHTML = `
+          <div class="player-info">
+            <div style="display:flex; align-items:center; gap:14px; font-size:18px;">
+              <span style="font-weight:800; font-size: 22px; width: 30px; text-align: center;">${rankIcon}</span>
+              <div><div style="font-weight:700; color: #1e293b;">${item.name}</div><div style="font-size:13px; color:var(--muted); margin-top:2px;">${item.extra || ''}</div></div>
+            </div>
+            <div style="font-size: 32px; font-weight: 800; color: #0f172a;">${item.score}</div>
+          </div>
+          <div class="hover-controls" style="flex-direction: column;">
+            <div class="score-btns">
+              <button class="btn-minus" onclick="changeScore('${id}', -3)">-3</button><button class="btn-minus" onclick="changeScore('${id}', -2)">-2</button><button class="btn-minus" onclick="changeScore('${id}', -1)">-1</button>
+              <button class="btn-plus" onclick="changeScore('${id}', 1)">+1</button><button class="btn-plus" onclick="changeScore('${id}', 2)">+2</button><button class="btn-plus" onclick="changeScore('${id}', 3)">+3</button>
+            </div>
+            <button class="btn-del" onclick="deleteItem('${id}')">Удалить участника</button>
+          </div>`;
+        container.appendChild(el);
+      });
+      applyGlassEffects();
+    }
+
+    window.changeScore = function(id, delta) { const current = allBoards[currentBoardId].items[id].score || 0; update(ref(db, `boards/${currentBoardId}/items/${id}`), { score: current + delta }); beep(700, 100); };
+    window.deleteItem = function(id) { uiConfirm("Удаление", "Удалить этого участника?", () => remove(ref(db, `boards/${currentBoardId}/items/${id}`))); };
+    document.getElementById('addItemBtn').onclick = () => {
+      const n = document.getElementById('newItemName'), e = document.getElementById('newItemExtra'), s = document.getElementById('newItemScore');
+      if (!n.value.trim()) return uiAlert("Внимание", "Имя обязательно!");
+      push(ref(db, `boards/${currentBoardId}/items`), { name: n.value.trim(), extra: e.value.trim(), score: Number(s.value || 0) });
+      n.value = ""; e.value = ""; s.value = ""; n.focus();
+    };
+
+    // --- ЛОГИКА КОМАНДНОГО ЦЕНТРА ---
+    const cmdMode = document.getElementById('cmdMode');
+    const cmdPayloadLabel = document.getElementById('cmdPayloadLabel');
+    const cmdPayloadInput = document.getElementById('cmdPayload');
+    const cmdColorLabel = document.getElementById('cmdColorLabel');
+    const cmdColorInput = document.getElementById('cmdColor');
+
+    cmdMode.addEventListener('change', (e) => {
+      const mode = e.target.value;
+      cmdPayloadLabel.classList.add('hidden'); cmdPayloadInput.classList.add('hidden');
+      cmdColorLabel.classList.add('hidden'); cmdColorInput.classList.add('hidden');
+
+      if (['alert', 'block'].includes(mode)) {
+          cmdPayloadLabel.classList.remove('hidden'); cmdPayloadInput.classList.remove('hidden');
+      }
+      if (mode === 'flash') {
+          cmdColorLabel.classList.remove('hidden'); cmdColorInput.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('openCommandCenterBtn').onclick = () => {
+      const container = document.getElementById('targetBoardsContainer');
+      container.innerHTML = `<label class="check-card"><input type="checkbox" value="main" checked> <span class="font-bold text-purple-600 truncate">Главное меню</span></label>`;
+      Object.keys(allBoards).forEach(id => {
+         container.innerHTML += `<label class="check-card"><input type="checkbox" value="${id}"> <span class="truncate text-sm">${allBoards[id].settings.title}</span></label>`;
+      });
+      document.getElementById('commandModal').classList.add('show');
+    };
+
+    document.getElementById('cmdCancelBtn').onclick = () => document.getElementById('commandModal').classList.remove('show');
+
+    document.getElementById('cmdSendBtn').onclick = () => {
+      const mode = document.getElementById('cmdMode').value;
+      const payload = document.getElementById('cmdPayload').value;
+      const flashColor = document.getElementById('cmdColor').value;
+      
+      const selectedBoards = Array.from(document.querySelectorAll('#targetBoardsContainer input:checked')).map(cb => cb.value);
+      const selectedRoles = Array.from(document.querySelectorAll('#targetRolesContainer input:checked')).map(cb => cb.value);
+
+      if(selectedBoards.length === 0) return uiAlert("Ошибка", "Выберите хотя бы одну локацию!");
+      if(selectedRoles.length === 0) return uiAlert("Ошибка", "Выберите хотя бы одну роль!");
+      if((mode === 'alert' || mode === 'block') && !payload.trim()) return uiAlert("Ошибка", "Введите текст сообщения!");
+
+      if (['confetti', 'alert', 'flash'].includes(mode)) {
+        // Однократные Ивенты (Realtime Payload)
+        push(ref(db, 'events'), { 
+          type: mode, 
+          targets: selectedBoards, 
+          roles: selectedRoles, 
+          payload: payload, 
+          color: flashColor,
+          timestamp: Date.now() 
+        });
+        
+        if (mode === 'confetti') confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } }); // Для админа
+        uiAlert("Успех", "Команда отправлена!");
+      } 
+      else if (mode === 'block' || mode === 'unblock') {
+        // Управление состояниями (Блокировка / Разблокировка)
+        const isActive = mode === 'block';
+        const updates = {};
+        
+        selectedBoards.forEach(boardId => {
+          if (boardId === 'main') {
+            updates[`system/blocks/main`] = { active: isActive, roles: selectedRoles, payload: payload };
+          } else {
+            updates[`boards/${boardId}/settings/block`] = { active: isActive, roles: selectedRoles, payload: payload };
+          }
+        });
+        update(ref(db), updates);
+        uiAlert("Успех", isActive ? "Блокировки успешно установлены!" : "Выбранные блокировки сняты!");
+      }
+
+      document.getElementById('cmdPayload').value = "";
+      document.getElementById('commandModal').classList.remove('show');
+    };
+
+    function applyGlassEffects() {
+      document.querySelectorAll('.glass-card').forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+          const rect = card.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width) * 100; const y = ((e.clientY - rect.top) / rect.height) * 100;
+          card.style.setProperty('--mouse-x', `${x}%`); card.style.setProperty('--mouse-y', `${y}%`);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
